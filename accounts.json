@@ -1,7 +1,0 @@
-{
-    "Accounts": {
-        "Prest0": {
-            "password": "$argon2id$v=19$m=4096,t=3,p=1$s+OYZo/UJEN5gE6qJwxLlQ$UiVP6fRs8X6m81mwZrFtQSJmALHnjzQWRlh4QJldz7w"
-        }
-    }
-}
