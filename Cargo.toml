@@ -1,0 +1,16 @@
+[package]
+name = "server_example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+password-hash = "0.5.0"  # or the latest version
+argon2 = "0.3"         # or the latest version
+ansi_term = "0.12.1" # or the latest version
+serde = "1.0" # or the latest version
+serde_json = "1.0" # or the latest version
+unicode-segmentation = "1.10.1" # or the latest version
+regex = "1.9" # or the latest version
+rand = "0.8.5"
+age = "0.11" 
+alkali = "0.3.0"
