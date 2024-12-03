@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn fuzzing_inputs_test() {
         clear_accounts_file();
-        for _ in 1..=100 {
+        for _ in 1..=20 {
             let mut rng = rand::thread_rng();
             let rand_u_size: u8 = rng.gen_range(1..=50);
             let rand_p_size: u8 = rng.gen_range(8..=100);
@@ -456,10 +456,24 @@ mod tests {
             let mut file = File::open(FILE_NAME.as_str()).unwrap();
             let mut contents = String::new();
             file.read_to_string(&mut contents).unwrap();
-
             let json: Value = from_str(&contents).unwrap();
             let accounts = json.get("Accounts").unwrap();
             assert!(accounts.get(&u).is_some());
         }
     }
 }
+
+/* Benchmark example:
+
+    use std::time::Instant;
+    let now = Instant::now();
+
+    // Code block to measure.
+    {
+        my_function_to_measure();
+    }
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
+
+*/

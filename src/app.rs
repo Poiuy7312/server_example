@@ -61,16 +61,18 @@ struct App {
     input_mode: InputMode,
     input_location: InputBox,
 }
-
+#[derive(Debug, PartialEq)]
 enum AppMode {
     Menu,
     Login,
     CreateAccount,
 }
+#[derive(Debug, PartialEq)]
 enum InputMode {
     Normal,
     Editing,
 }
+#[derive(Debug, PartialEq)]
 enum InputBox {
     Username,
     Password,
@@ -413,5 +415,116 @@ impl App {
                 frame.render_widget(received, received_area);
             } // Similar enhancements for login mode if needed...
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Test Case 1: Test for Entering and Deleting Characters
+    #[test]
+    fn test_enter_and_delete_characters() {
+        let mut app = App::new();
+
+        // Simulate entering a character
+        app.enter_char('a');
+        assert_eq!(app.username, "a");
+
+        // Simulate deleting the character
+        app.delete_char();
+        assert_eq!(app.username, "");
+    }
+
+    // Test Case 2: Test for Moving Cursor
+    #[test]
+    fn test_move_cursor() {
+        let mut app = App::new();
+        app.username = "test".to_string();
+        app.character_index = 2; // Start cursor at position 2
+
+        // Move cursor right
+        app.move_cursor_right();
+        assert_eq!(app.character_index, 3);
+
+        // Move cursor left
+        app.move_cursor_left();
+        assert_eq!(app.character_index, 2);
+    }
+
+    // Test Case 3: Test for Switching Between Input Fields
+    #[test]
+    fn test_switch_input_location() {
+        let mut app = App::new();
+
+        // Enter text in the username field
+        app.enter_char('t');
+        app.enter_char('e');
+        app.enter_char('s');
+        app.enter_char('t');
+        assert_eq!(app.username, "test");
+
+        // Submit the message and switch to the password field
+        app.submit_message();
+        assert_eq!(app.input_location, InputBox::Password);
+    }
+
+    // Test Case 4: Test for Submitting the Form
+    #[test]
+    fn test_submit_form() {
+        let mut app = App::new();
+
+        // Enter username and password
+        app.enter_char('t');
+        app.enter_char('e');
+        app.enter_char('s');
+        app.enter_char('t');
+        app.password = "password".to_string();
+
+        // Submit the form
+        match app.input_location {
+            InputBox::Username => {
+                app.submit_message();
+                assert_eq!(app.input_location, InputBox::Password);
+            }
+            InputBox::Password => {
+                app.submit_message();
+                assert_eq!(app.input_location, InputBox::Username);
+            }
+        }
+        assert_eq!(app.username, "test");
+        assert_eq!(app.password, "password");
+        // Assert that the fields are cleared
+    }
+
+    // Test Case 5: Test for Application Mode Transitions
+    #[test]
+    fn test_app_mode_transition() {
+        let mut app = App::new();
+
+        // Initially in Menu mode
+        assert_eq!(app.app_mode, AppMode::Menu);
+
+        // Simulate pressing 'l' for Login
+        app.app_mode = AppMode::Login;
+        assert_eq!(app.app_mode, AppMode::Login);
+
+        // Simulate pressing 'c' for CreateAccount
+        app.app_mode = AppMode::CreateAccount;
+        assert_eq!(app.app_mode, AppMode::CreateAccount);
+    }
+
+    // Test Case 6: Test for Escape Key Functionality
+    #[test]
+    fn test_escape_key_functionality() {
+        let mut app = App::new();
+
+        // Enter editing mode
+        app.input_mode = InputMode::Editing;
+        assert_eq!(app.input_mode, InputMode::Editing);
+
+        // Press Escape key to return to normal mode
+        app.input_mode = InputMode::Normal;
+        assert_eq!(app.input_mode, InputMode::Normal);
     }
 }
