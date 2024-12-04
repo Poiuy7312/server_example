@@ -527,4 +527,104 @@ mod tests {
         app.input_mode = InputMode::Normal;
         assert_eq!(app.input_mode, InputMode::Normal);
     }
+    // fn byte_index
+    #[test]
+    fn test_enter_char_in_password() {
+        let mut app = App::new();
+        app.input_location = InputBox::Password;
+
+        // Enter character in the password field
+        app.enter_char('p');
+        assert_eq!(app.password, "p");
+    }
+
+    // Test Case 2: Test for byte_index Calculation
+    #[test]
+    fn test_byte_index() {
+        let mut app = App::new();
+        app.username = "hello".to_string();
+        app.password = "world".to_string();
+
+        // Test byte_index for username
+        app.character_index = 2;
+        assert_eq!(app.byte_index(), 2);
+
+        // Test byte_index for password
+        app.input_location = InputBox::Password;
+        app.character_index = 3;
+        assert_eq!(app.byte_index(), 3);
+    }
+
+    // Test Case 3: Test for Cursor Behavior at Boundaries
+    #[test]
+    fn test_cursor_at_boundaries() {
+        let mut app = App::new();
+        app.username = "test".to_string();
+        app.character_index = 0;
+
+        // Test moving left when cursor is at the beginning
+        app.move_cursor_left();
+        assert_eq!(app.character_index, 0);
+
+        // Move cursor to the end
+        app.character_index = 4;
+        app.move_cursor_right();
+        assert_eq!(app.character_index, 4);
+
+        // Test moving right when cursor is at the end
+        app.move_cursor_right();
+        assert_eq!(app.character_index, 4);
+    }
+
+    // Test Case 4: Test for Submitting a Message with Empty Fields
+    #[test]
+    fn test_submit_empty_message() {
+        let mut app = App::new();
+
+        // Initially, username and password are empty
+        assert_eq!(app.username, "");
+        assert_eq!(app.password, "");
+
+        // Submit the message while username is empty
+        app.submit_message();
+        assert_eq!(app.input_location, InputBox::Password);
+        assert_eq!(app.username, "");
+        assert_eq!(app.password, "");
+
+        // Submit again when password is empty
+        app.submit_message();
+        assert_eq!(app.input_location, InputBox::Username);
+        assert_eq!(app.username, "");
+        assert_eq!(app.password, "");
+    }
+
+    // Test Case 5: Test for Switching Input Location Without Entering Data
+    #[test]
+    fn test_switch_input_location_without_data() {
+        let mut app = App::new();
+
+        // Initially in Username input
+        assert_eq!(app.input_location, InputBox::Username);
+
+        // Switch to Password input
+        app.submit_message();
+        assert_eq!(app.input_location, InputBox::Password);
+    }
+
+    // Test Case 6: Test for Moving Cursor with No Text
+    #[test]
+    fn test_cursor_with_no_text() {
+        let mut app = App::new();
+
+        // Start with no text in the input
+        app.username = "".to_string();
+        app.character_index = 0;
+
+        // Try moving the cursor left and right, even though there's no text
+        app.move_cursor_left();
+        assert_eq!(app.character_index, 0);
+
+        app.move_cursor_right();
+        assert_eq!(app.character_index, 0);
+    }
 }
