@@ -92,16 +92,15 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    fn mock_server_for_echo() {
+    fn mock_server_for_echo() -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let listener = TcpListener::bind("localhost:8080").unwrap();
             let (mut stream, _) = listener.accept().unwrap();
             let mut buffer = [0; 1024];
             stream.read(&mut buffer).unwrap();
             stream.write_all(&buffer).unwrap();
-        });
+        })
     }
-
     #[test]
     fn test_encrypt_message() {
         let message = "What's up yeah".to_string();
