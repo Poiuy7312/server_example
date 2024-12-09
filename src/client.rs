@@ -1,5 +1,8 @@
-pub mod client {
-    use age::{encrypt, x25519::Recipient};
+pub(crate) mod client {
+    use age::{
+        decrypt, encrypt,
+        x25519::{Identity, Recipient},
+    };
     use std::io::{Read, Write};
     use std::net::{Shutdown, TcpStream};
 
@@ -31,6 +34,23 @@ pub mod client {
         TcpStream::connect("localhost:8080")
     }
 
+    fn parse_encrypted_message(message_byte: std::io::Bytes<&[u8]>) -> Vec<u8> {
+        let bytes_vec = message_byte
+            .filter_map(|byte| byte.ok()) // unwraps and filters out None values
+            .collect::<Vec<_>>(); // Collect into a Vec
+
+        let bytes = bytes_vec.as_slice(); // Borrow the Vec as a slice
+        let bytes = bytes
+            .iter()
+            .rev()
+            .skip_while(|&&byte| byte != 1 as u8)
+            .map(|byte| byte.to_owned())
+            .collect::<Vec<_>>(); // Removes all trailing null bytes
+        let mut bytes: Vec<_> = bytes.iter().rev().cloned().collect();
+        bytes.pop();
+        return bytes;
+    }
+
     fn handle_key_mode(stream: &mut TcpStream) -> String {
         let mut buffer = [0; 1024];
         let message = "Key".to_string();
@@ -53,15 +73,17 @@ pub mod client {
         public_key: &str,
     ) -> String {
         let mut buffer = [0; 1024];
+        let key = age::x25519::Identity::generate();
+        let client_pub_key = key.to_public();
         let pub_key: Recipient = public_key.parse().expect("Invalid public key format");
-        let message = format!("{},{},{},", mode, username, password);
+        let message = format!("{},{},{},{}", mode, username, password, client_pub_key);
 
         let encrypted_message = encrypt_message(&pub_key, &message);
         send_message(stream, &encrypted_message);
-        receive_message(stream, &mut buffer);
+        let message = receive_encrypted_message(key, stream, &mut buffer);
         cleanup_stream(stream);
 
-        String::from_utf8_lossy(&buffer).to_string()
+        String::from_utf8_lossy(&message).to_string()
     }
 
     pub fn encrypt_message(pub_key: &Recipient, message: &str) -> Vec<u8> {
@@ -75,10 +97,21 @@ pub mod client {
         stream.write_all(message).unwrap();
     }
 
+    fn receive_encrypted_message(
+        key: Identity,
+        stream: &mut TcpStream,
+        buffer: &mut [u8; 1024],
+    ) -> Vec<u8> {
+        stream.read(buffer).unwrap();
+        let result = buffer.bytes().into_iter();
+        let message = parse_encrypted_message(result);
+        let message = decrypt(&key, &message).expect("");
+        return message;
+    }
+
     fn receive_message(stream: &mut TcpStream, buffer: &mut [u8; 1024]) {
         stream.read(buffer).unwrap();
     }
-
     pub(crate) fn cleanup_stream(stream: &mut TcpStream) {
         stream.shutdown(Shutdown::Both).unwrap();
     }
@@ -87,11 +120,7 @@ pub mod client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read, Write};
-    use std::net::{TcpListener, TcpStream};
-    use std::thread;
-    use std::time::Duration;
-
+    use std::net::TcpStream;
     #[test]
     fn test_encrypt_message() {
         let message = "What's up yeah".to_string();
