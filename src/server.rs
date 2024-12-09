@@ -1,5 +1,9 @@
 pub mod server {
-    use age::{encrypt, x25519::Recipient};
+    use age::{
+        encrypt,
+        secrecy::ExposeSecret,
+        x25519::{Identity, Recipient},
+    };
     use argon2::{
         // For password hashing and verification using Argon2.
         password_hash::{
@@ -7,6 +11,7 @@ pub mod server {
         },
         Argon2,
     };
+    use dotenv::dotenv;
     use std::fs::remove_file;
     use std::{
         env,
@@ -27,9 +32,10 @@ pub mod server {
         format!(
             "{}{}",
             env::var("ACCOUNTSPATH").unwrap_or_else(|_| String::new()),
-            "accounts.json"
+            "accounts.txt"
         )
     });
+    const ENV_NAME: &str = ".env";
 
     pub(crate) fn clear_accounts_file() {
         let _ = remove_file(FILE_NAME.as_str());
@@ -55,16 +61,48 @@ pub mod server {
     }
 
     fn read_file(file_path: &Path) -> String {
+        dotenv().ok();
+        let key = std::env::var("KEYACCOUNT").expect("No env variable found");
+        let key: Identity = key.parse().expect("Unable to parse data");
         let mut file = File::open(file_path).expect("Unable to open file");
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents)
             .expect("Unable to read file");
-        contents
+        let data = age::decrypt(&key, &contents).expect("Can't Decrypt File");
+        return String::from_utf8_lossy(&data).to_string();
     }
 
     // Helper function to parse JSON from a string.
     fn parse_json(contents: &str) -> Value {
         from_str(contents).unwrap_or_else(|_| json!({})) // Return an empty JSON object on error
+    }
+
+    fn encrypt_file(json_data: String) -> Vec<u8> {
+        let env_path: &Path = Path::new(ENV_NAME);
+        match env_path.try_exists() {
+            Ok(true) => {
+                dotenv().ok();
+                let key = std::env::var("KEYACCOUNT").expect("No key env variable found");
+                let key: Identity = key.parse().expect("Can't parse to identity");
+                let pub_key = key.to_public();
+                let data = encrypt(&pub_key, json_data.as_bytes()).expect("Can't encrypt data");
+                return data;
+            }
+            Ok(false) => {
+                let key = age::x25519::Identity::generate();
+                let pub_key = key.to_public();
+                let data = encrypt(&pub_key, json_data.as_bytes()).expect("Can't encrypt data");
+                let mut envfile = File::create(ENV_NAME).expect("Unable to create .env file");
+                envfile
+                    .write_all(format!("KEYACCOUNT={}", key.to_string().expose_secret()).as_bytes())
+                    .expect("Write failed");
+                return data;
+            }
+            Err(_) => {
+                eprintln!("NOOOOOOOO");
+                return Vec::new();
+            }
+        }
     }
 
     // Updated `create_file` function to use the refactored helpers.
@@ -77,8 +115,7 @@ pub mod server {
             Ok(true) => {
                 // If the file exists, open it and append new account data.
                 let contents = read_file(file_path); // Use the helper function to read the file
-
-                // Deserialize the JSON file content into a Map.
+                                                     // Deserialize the JSON file content into a Map.
                 let mut json: Map<String, Value> =
                     from_str(&contents).unwrap_or_else(|_| Map::new());
 
@@ -102,15 +139,15 @@ pub mod server {
                 // Rewrite the modified JSON data back to the file.
                 let mut file = File::create(FILE_NAME.as_str()).expect("Unable to create file");
                 let json = json!(json);
-                file.write_all(json.to_string().as_bytes())
-                    .expect("Write failed");
+                let data = encrypt_file(json.to_string());
+                file.write_all(data.as_slice()).expect("Write failed");
             }
             Ok(false) => {
-                // If the file does not exist, create a new file and write the account data.
                 let mut file = File::create(FILE_NAME.as_str()).expect("Unable to create file");
-                file.write_all(json_data.to_string().as_bytes())
-                    .expect("Write failed");
+                let data = encrypt_file(json_data.to_string());
+                file.write_all(data.as_slice()).expect("Write failed");
             }
+            Err(_) => {}
             _ => eprintln!("Error checking file existence"),
         }
     }
@@ -390,8 +427,6 @@ pub mod server {
         use super::*;
         use rand::{distributions::Alphanumeric, Rng};
         use serde_json::{from_str, Value};
-        use std::fs::File;
-        use std::io::Read;
 
         // Helper function to clear the accounts file before each test.
         // Test for check_password function
@@ -459,11 +494,10 @@ pub mod server {
             assert_eq!(account.username, "new_user");
 
             // Check if account is saved to file
-            let mut file = File::open(FILE_NAME.as_str()).unwrap();
-            let mut contents = String::new();
-            file.read_to_string(&mut contents).unwrap();
-
-            let json: Value = from_str(&contents).unwrap();
+            let file_path: &Path = Path::new(FILE_NAME.as_str());
+            let file = read_file(file_path);
+            let file = file.as_str();
+            let json: Value = from_str(file).unwrap();
             let accounts = json.get("Accounts").unwrap();
             assert!(accounts.get("new_user").is_some());
         }
@@ -504,7 +538,6 @@ pub mod server {
         }
         #[test]
         fn fuzzing_inputs_test() {
-            clear_accounts_file();
             for _ in 1..=20 {
                 let mut rng = rand::thread_rng();
                 let rand_u_size: u8 = rng.gen_range(1..=50);
@@ -520,10 +553,10 @@ pub mod server {
                     .map(char::from)
                     .collect();
                 let _ = create_account(&u, &p);
-                let mut file = File::open(FILE_NAME.as_str()).unwrap();
-                let mut contents = String::new();
-                file.read_to_string(&mut contents).unwrap();
-                let json: Value = from_str(&contents).unwrap();
+                let file_path: &Path = Path::new(FILE_NAME.as_str());
+                let file = read_file(file_path);
+                let file = file.as_str();
+                let json: Value = from_str(file).unwrap();
                 let accounts = json.get("Accounts").unwrap();
                 assert!(accounts.get(&u).is_some());
             }
