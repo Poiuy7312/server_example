@@ -638,10 +638,12 @@ mod tests {
     }
     #[test]
     fn test_server_response_valid_account() {
+        thread::spawn(|| {
+            server::server::server_run();
+        });
         server::server::clear_accounts_file();
         let test_user: String = "PReotjiehit2".to_string();
         let test_pass: String = "Minecraft@123".to_string();
-        start_server();
         std::thread::sleep(Duration::from_secs(4)); // pause for 2 seconds
         let key_create =
             client::client::send_and_receive("Key", &String::new(), &String::new(), String::new());
@@ -655,10 +657,13 @@ mod tests {
     }
     #[test]
     fn test_server_response_invalid_no_special_char_account() {
+        thread::spawn(|| {
+            server::server::server_run();
+        });
         server::server::clear_accounts_file();
         let test_user: String = "PReotjiehit3".to_string();
         let test_pass: String = "Minecraft123".to_string();
-        std::thread::sleep(Duration::from_secs(2)); // pause for 2 seconds
+        std::thread::sleep(Duration::from_secs(8)); // pause for 2 seconds
         let key =
             client::client::send_and_receive("Key", &String::new(), &String::new(), String::new());
         let result = client::client::send_and_receive("Create", &test_user, &test_pass, key);
@@ -670,10 +675,13 @@ mod tests {
     }
     #[test]
     fn test_server_response_invalid_length_account() {
+        thread::spawn(|| {
+            server::server::server_run();
+        });
         server::server::clear_accounts_file();
         let test_user: String = "PReotjiehit4".to_string();
         let test_pass: String = "M@1ecra".to_string();
-        std::thread::sleep(Duration::from_secs(2)); // pause for 2 seconds
+        std::thread::sleep(Duration::from_secs(8)); // pause for 2 seconds
         let key =
             client::client::send_and_receive("Key", &String::new(), &String::new(), String::new());
         let result = client::client::send_and_receive("Create", &test_user, &test_pass, key);
